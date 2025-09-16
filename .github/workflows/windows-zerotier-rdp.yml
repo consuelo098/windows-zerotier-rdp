@@ -1,0 +1,99 @@
+name: Windows RDP via ZeroTier (Optimized)
+
+on:
+  workflow_dispatch:
+    inputs:
+      zt_network_id:
+        description: "ZeroTier Network ID"
+        required: true
+      rdp_user:
+        description: "RDP Username"
+        required: false
+        default: "runneradmin"
+      rdp_pass:
+        description: "RDP Password"
+        required: false
+        default: "MyPassword!123"
+      runtime_minutes:
+        description: "RDP Alive Minutes (max 355)"
+        required: false
+        default: "355"
+
+jobs:
+  rdp:
+    runs-on: windows-2022
+    timeout-minutes: 370
+
+    steps:
+      - name: Find ZeroTier CLI Path
+        id: ztcli
+        shell: pwsh
+        run: |
+          $paths = @(
+            "C:\Program Files (x86)\ZeroTier\One\zerotier-cli.bat",
+            "C:\Program Files\ZeroTier\One\zerotier-cli.bat"
+          )
+          foreach ($p in $paths) {
+            if (Test-Path $p) {
+              echo "cli=$p" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+              break
+            }
+          }
+
+      - name: Join ZeroTier Network
+        shell: pwsh
+        run: |
+          $cli = "${{ steps.ztcli.outputs.cli }}"
+          & $cli join ${{ github.event.inputs.zt_network_id }}
+          Start-Sleep -Seconds 6
+          & $cli listnetworks
+
+      - name: Enable RDP User & Set Password
+        shell: pwsh
+        run: |
+          $u = "${{ github.event.inputs.rdp_user }}"
+          $p = "${{ github.event.inputs.rdp_pass }}"
+          $sec = ConvertTo-SecureString $p -AsPlainText -Force
+          if (-not (Get-LocalUser -Name $u -ErrorAction SilentlyContinue)) {
+            New-LocalUser -Name $u -Password $sec -AccountNeverExpires
+            Add-LocalGroupMember -Group Administrators -Member $u
+            Add-LocalGroupMember -Group "Remote Desktop Users" -Member $u
+          } else {
+            Set-LocalUser -Name $u -Password $sec -AccountNeverExpires
+            Enable-LocalUser -Name $u
+          }
+          Set-ItemProperty "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name fDenyTSConnections -Value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop" | Out-Null
+
+      - name: Show ZeroTier IP
+        shell: pwsh
+        run: |
+          $cli = "${{ steps.ztcli.outputs.cli }}"
+          $ip = (& $cli listnetworks | Select-String -Pattern "OK" | ForEach-Object {
+            ($_ -split '\s+') | Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' }
+          } | Select-Object -First 1)
+          Write-Host "ZeroTier IP: $ip"
+          echo "ztip=$ip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Output Connection Info
+        shell: pwsh
+        run: |
+          echo "================================================="
+          echo " RDP is ready via ZeroTier!"
+          echo " Username: ${{ github.event.inputs.rdp_user }}"
+          echo " Password: ${{ github.event.inputs.rdp_pass }}"
+          echo " ZeroTier Network: ${{ github.event.inputs.zt_network_id }}"
+          echo " ZeroTier IP: ${{ steps.ztcli.outputs.ztip }}"
+          echo "================================================="
+
+      - name: Keep Alive for Requested Time
+        shell: pwsh
+        run: |
+          $mins = [int]"${{ github.event.inputs.runtime_minutes }}"
+          if ($mins -gt 355) { $mins = 355 }
+          $end = (Get-Date).AddMinutes($mins)
+          while ((Get-Date) -lt $end) {
+            Write-Host "RDP ALIVE ($((($end - (Get-Date)).TotalMinutes) -as [int])) minutes left"
+            Start-Sleep -Seconds 60
+          }
+          
