@@ -76,17 +76,17 @@ jobs:
           Set-ItemProperty "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name fDenyTSConnections -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop" | Out-Null
 
-      - name: Install Telegram, IDM, and Speedtest CLI
+      - name: Install Telegram, IDM, and Speedtest GUI
         shell: pwsh
         run: |
           # Telegram Desktop
           Invoke-WebRequest -Uri "https://telegram.org/dl/desktop/win64" -OutFile "$env:TEMP\TelegramSetup.exe"
           Start-Process -FilePath "$env:TEMP\TelegramSetup.exe" -ArgumentList "/SILENT" -Wait
-          # Internet Download Manager (IDM) Trial
-          Invoke-WebRequest -Uri "https://mirror2.internetdownloadmanager.com/idman646build25.exe" -OutFile "$env:TEMP\idman.exe"
+          # Internet Download Manager (IDM, official trial)
+          Invoke-WebRequest -Uri "https://mirror2.internetdownloadmanager.com/idman642build42.exe" -OutFile "$env:TEMP\idman.exe"
           Start-Process -FilePath "$env:TEMP\idman.exe" -ArgumentList "/silent" -Wait
-          # Speedtest CLI by Ookla
-          Invoke-WebRequest -Uri "https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-win64.msi" -OutFile "$env:TEMP\speedtest.msi"
+          # Speedtest by Ookla (GUI, latest)
+          Invoke-WebRequest -Uri "https://install.speedtest.net/app/windows/latest/speedtestbyookla_x64.msi" -OutFile "$env:TEMP\speedtest.msi"
           Start-Process msiexec.exe -ArgumentList "/i `"$env:TEMP\speedtest.msi`" /quiet /norestart" -Wait
 
       - name: Unpin Microsoft Edge from Taskbar (RDP User)
