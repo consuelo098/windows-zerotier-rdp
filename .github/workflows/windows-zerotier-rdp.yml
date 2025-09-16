@@ -1,4 +1,4 @@
-name: Windows RDP via ZeroTier
+name: Windows RDP via ZeroTier (With Keep-Alive)
 
 on:
   workflow_dispatch:
@@ -14,11 +14,15 @@ on:
         description: "RDP Password"
         required: false
         default: "MyPassword!123"
+      runtime_minutes:
+        description: "Session duration in minutes (max 355)"
+        required: false
+        default: "355"
 
 jobs:
   rdp:
     runs-on: windows-2022
-    timeout-minutes: 60
+    timeout-minutes: 370
 
     steps:
       - name: Install ZeroTier (if missing)
@@ -76,4 +80,16 @@ jobs:
         shell: pwsh
         run: |
           ipconfig
+
+      - name: Keep RDP Session Alive
+        shell: pwsh
+        run: |
+          $runtime = [int]"${{ github.event.inputs.runtime_minutes }}"
+          if ($runtime -gt 355) { $runtime = 355 }
+          $end = (Get-Date).AddMinutes($runtime)
+          while ((Get-Date) -lt $end) {
+            $left = [math]::Ceiling(($end - (Get-Date)).TotalMinutes)
+            Write-Host "RDP alive... ($left min left)"
+            Start-Sleep -Seconds 60
+          }
           
