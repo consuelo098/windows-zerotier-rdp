@@ -1,4 +1,4 @@
-name: Windows RDP via ZeroTier (Clean Session)
+name: Windows RDP via ZeroTier (With Apps and Taskbar Clean)
 
 on:
   workflow_dispatch:
@@ -75,6 +75,28 @@ jobs:
           }
           Set-ItemProperty "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name fDenyTSConnections -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop" | Out-Null
+
+      - name: Install Telegram, IDM, and Speedtest CLI
+        shell: pwsh
+        run: |
+          # Telegram Desktop
+          Invoke-WebRequest -Uri "https://telegram.org/dl/desktop/win64" -OutFile "$env:TEMP\TelegramSetup.exe"
+          Start-Process -FilePath "$env:TEMP\TelegramSetup.exe" -ArgumentList "/SILENT" -Wait
+          # Internet Download Manager (IDM) Trial
+          Invoke-WebRequest -Uri "https://mirror2.internetdownloadmanager.com/idman646build25.exe" -OutFile "$env:TEMP\idman.exe"
+          Start-Process -FilePath "$env:TEMP\idman.exe" -ArgumentList "/silent" -Wait
+          # Speedtest CLI by Ookla
+          Invoke-WebRequest -Uri "https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-win64.msi" -OutFile "$env:TEMP\speedtest.msi"
+          Start-Process msiexec.exe -ArgumentList "/i `"$env:TEMP\speedtest.msi`" /quiet /norestart" -Wait
+
+      - name: Unpin Microsoft Edge from Taskbar (RDP User)
+        shell: pwsh
+        run: |
+          $u = "${{ github.event.inputs.rdp_user }}"
+          $TaskbarPath = "C:\Users\$u\AppData\Roaming\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"
+          if (Test-Path $TaskbarPath) {
+            Get-ChildItem $TaskbarPath | Where-Object { $_.Name -like "*Edge*.lnk" } | Remove-Item -Force
+          }
 
       - name: Show ZeroTier IP
         shell: pwsh
