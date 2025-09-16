@@ -1,4 +1,4 @@
-name: Windows RDP via ZeroTier (With Keep-Alive)
+name: Windows RDP via ZeroTier (Clean Session)
 
 on:
   workflow_dispatch:
@@ -9,11 +9,11 @@ on:
       rdp_user:
         description: "RDP Username"
         required: false
-        default: "runneradmin"
+        default: "ZtUser"
       rdp_pass:
         description: "RDP Password"
         required: false
-        default: "MyPassword!123"
+        default: "ZtPass@123"
       runtime_minutes:
         description: "Session duration in minutes (max 355)"
         required: false
@@ -59,7 +59,7 @@ jobs:
           Start-Sleep -Seconds 6
           & $cli listnetworks
 
-      - name: Enable RDP User & Set Password
+      - name: Create Clean RDP User & Enable RDP
         shell: pwsh
         run: |
           $u = "${{ github.event.inputs.rdp_user }}"
